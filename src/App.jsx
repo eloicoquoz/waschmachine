@@ -194,7 +194,24 @@ export default function App() {
   return (
     <Shell notif={unreadNtfs} onNotif={()=>setView("notifs")} tab={tab} onTabChange={setTab} unread={unread} memberCount={members.length}>
       <div style={{flex:1,overflowY:"auto",paddingBottom:84}}>
-        {tab==="home"    &&<HomeTab myTs={myTs} onSel={setSelId} onChat={openChat} unread={unread} onCal={()=>toast2("Ajouté au calendrier !",C.cyan)}/>}
+        {tab==="home"    &&<HomeTab myTs={myTs} onSel={setSelId} onChat={openChat} unread={unread} onCal={(t)=>{
+  const d=new Date(t.rawDate);
+  const end=new Date(t.rawDate);end.setHours(end.getHours()+8);
+  const fmt=(dt)=>dt.toISOString().replace(/[-:]|\.\d+/g,"").slice(0,15)+"Z";
+  const ics=[
+    "BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Waschmachine//FR",
+    "BEGIN:VEVENT",
+    `DTSTART:${fmt(d)}`,`DTEND:${fmt(end)}`,
+    `SUMMARY:🏐 ${t.name}`,
+    `LOCATION:${t.lieu}`,
+    `DESCRIPTION:${t.playerFormat} ${t.playType==="Indoor"?"Indoor":t.surface||""} - Waschmachine Volleyball Club`,
+    "END:VEVENT","END:VCALENDAR"
+  ].join("\r\n");
+  const url=URL.createObjectURL(new Blob([ics],{type:"text/calendar;charset=utf-8"}));
+  const a=document.createElement("a");a.href=url;a.download=`${t.name}.ics`;a.click();
+  URL.revokeObjectURL(url);
+  toast2("Ouverture du calendrier !",C.cyan);
+}}/>}
         {tab==="tournois"&&<TournoisTab ts={ts} onSel={setSelId} onAdd={()=>setView("create")}/>}
         {tab==="feed"    &&<FeedTab feed={feed} onLike={likePhoto} onAdd={()=>setView("add-post")} onDelete={handleDeletePost} currentUser={currentUser}/>}
         {tab==="chats"   &&<ChatsTab myTs={myTs} unread={unread} onOpen={openChat}/>}
@@ -229,7 +246,7 @@ function HomeTab({myTs,onSel,onChat,unread,onCal}) {
                 <div style={{color:C.muted,fontSize:12,marginBottom:2}}>📅 {t.date} · 📍 {t.lieu}</div>
                 <div style={{color:cap.color,fontSize:12,fontWeight:600,marginBottom:12}}>{cap.text}</div>
                 <div style={{display:"flex",gap:8}}>
-                  <button onClick={onCal} style={{flex:1,padding:"8px 0",borderRadius:10,border:`1px solid ${C.border}`,background:"none",color:C.cyan,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>📆 Calendrier</button>
+                  <button onClick={()=>onCal(t)} style={{flex:1,padding:"8px 0",borderRadius:10,border:`1px solid ${C.border}`,background:"none",color:C.cyan,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>📆 Calendrier</button>
                   <button onClick={()=>onChat(t.id)} style={{flex:1,padding:"8px 0",borderRadius:10,border:`1px solid ${hu?C.coral:C.border}`,background:hu?C.coral+"18":"none",color:hu?C.coral:C.gold,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>💬 Chat{hu?" 🔴":""}</button>
                 </div>
               </div>
