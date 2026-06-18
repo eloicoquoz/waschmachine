@@ -131,7 +131,7 @@ export default function App() {
   const [toast,setToast]        = useState(null);
   const [flyer,setFlyer]        = useState(null);
   const [picSrc,setPic]         = useState(null);
-  const [form,setForm]          = useState({name:"",rawDate:"",lieu:"",playType:"Outdoor",surface:"Beach",playerFormat:"4v4",minPlayers:4,maxPlayers:8,description:"",iParticipate:true});
+  const [form,setForm]          = useState({name:"",rawDate:"",lieu:"",playType:"Outdoor",surface:"Beach",playerFormat:"4v4",minPlayers:4,maxPlayers:8,description:"",iParticipate:true,allDay:true,startTime:"09:00",endTime:"18:00"});
 
   const selT = selId ? ts.find(t=>t.id===selId) : null;
   const chatT= chatId? ts.find(t=>t.id===chatId): null;
@@ -157,8 +157,8 @@ export default function App() {
     if(!form.name.trim()||!form.rawDate||!form.lieu.trim()){toast2("Nom, date et lieu requis",C.coral);return;}
     const d=new Date(form.rawDate);
     const dl=isNaN(d)?form.rawDate:d.toLocaleDateString("fr-CH",{weekday:"short",day:"numeric",month:"short",year:"numeric"});
-    await createTournament({name:form.name.trim(),date:dl,rawDate:form.rawDate,lieu:form.lieu.trim(),playType:form.playType,surface:form.playType==="Indoor"?null:form.surface,playerFormat:form.playerFormat,deadline:"—",minPlayers:parseInt(form.minPlayers)||2,maxPlayers:parseInt(form.maxPlayers)||8,proposedBy:ME,description:form.description.trim(),flyerUrl:null});
-    setForm({name:"",rawDate:"",lieu:"",playType:"Outdoor",surface:"Beach",playerFormat:"4v4",minPlayers:4,maxPlayers:8,description:"",iParticipate:true});
+    await createTournament({name:form.name.trim(),date:dl,rawDate:form.rawDate,lieu:form.lieu.trim(),playType:form.playType,surface:form.playType==="Indoor"?null:form.surface,playerFormat:form.playerFormat,deadline:"—",minPlayers:parseInt(form.minPlayers)||2,maxPlayers:parseInt(form.maxPlayers)||8,proposedBy:ME,description:form.description.trim(),flyerUrl:null,allDay:form.allDay,startTime:form.allDay?null:form.startTime,endTime:form.allDay?null:form.endTime});
+    setForm({name:"",rawDate:"",lieu:"",playType:"Outdoor",surface:"Beach",playerFormat:"4v4",minPlayers:4,maxPlayers:8,description:"",iParticipate:true,allDay:true,startTime:"09:00",endTime:"18:00"});
     setFlyer(null);toast2("Tournoi proposé !",C.gold);setView("main");setTab("tournois");
   };
   const sendMsg=(tId,txt)=>{if(txt.trim())sendMessage(String(tId),ME,ME,txt.trim());};
@@ -195,23 +195,23 @@ export default function App() {
     <Shell notif={unreadNtfs} onNotif={()=>setView("notifs")} tab={tab} onTabChange={setTab} unread={unread} memberCount={members.length}>
       <div style={{flex:1,overflowY:"auto",paddingBottom:84}}>
         {tab==="home"    &&<HomeTab myTs={myTs} onSel={setSelId} onChat={openChat} unread={unread} onCal={(t)=>{
-  const d=new Date(t.rawDate);
-  const end=new Date(t.rawDate);end.setHours(end.getHours()+8);
-  const fmt=(dt)=>dt.toISOString().replace(/[-:]|\.\d+/g,"").slice(0,15)+"Z";
-  const ics=[
-    "BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Waschmachine//FR",
-    "BEGIN:VEVENT",
-    `DTSTART:${fmt(d)}`,`DTEND:${fmt(end)}`,
-    `SUMMARY:🏐 ${t.name}`,
-    `LOCATION:${t.lieu}`,
-    `DESCRIPTION:${t.playerFormat} ${t.playType==="Indoor"?"Indoor":t.surface||""} - Waschmachine Volleyball Club`,
-    "END:VEVENT","END:VCALENDAR"
-  ].join("\r\n");
-  const url=URL.createObjectURL(new Blob([ics],{type:"text/calendar;charset=utf-8"}));
-  const a=document.createElement("a");a.href=url;a.download=`${t.name}.ics`;a.click();
-  URL.revokeObjectURL(url);
-  toast2("Ouverture du calendrier !",C.cyan);
-}}/>}
+          const d=new Date(t.rawDate);
+          let dtStart,dtEnd;
+          if(t.allDay||!t.startTime){
+            const ds=d.toISOString().slice(0,10).replace(/-/g,"");
+            dtStart=`DTSTART;VALUE=DATE:${ds}`;dtEnd=`DTEND;VALUE=DATE:${ds}`;
+          } else {
+            const [sh,sm]=t.startTime.split(":");const [eh,em]=(t.endTime||"18:00").split(":");
+            const s=new Date(d);s.setHours(parseInt(sh),parseInt(sm),0);
+            const e=new Date(d);e.setHours(parseInt(eh),parseInt(em),0);
+            const fmt=(dt)=>dt.toISOString().replace(/[-:]|\.\d+/g,"").slice(0,15)+"Z";
+            dtStart=`DTSTART:${fmt(s)}`;dtEnd=`DTEND:${fmt(e)}`;
+          }
+          const ics=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Waschmachine//FR","BEGIN:VEVENT",dtStart,dtEnd,`SUMMARY:🏐 ${t.name}`,`LOCATION:${t.lieu}`,`DESCRIPTION:${t.playerFormat} ${t.playType==="Indoor"?"Indoor":t.surface||""} - Waschmachine Volleyball Club`,"END:VEVENT","END:VCALENDAR"].join("\r\n");
+          const url=URL.createObjectURL(new Blob([ics],{type:"text/calendar;charset=utf-8"}));
+          const a=document.createElement("a");a.href=url;a.download=`${t.name}.ics`;a.click();URL.revokeObjectURL(url);
+          toast2("Ouverture du calendrier !",C.cyan);
+        }}/>
         {tab==="tournois"&&<TournoisTab ts={ts} onSel={setSelId} onAdd={()=>setView("create")}/>}
         {tab==="feed"    &&<FeedTab feed={feed} onLike={likePhoto} onAdd={()=>setView("add-post")} onDelete={handleDeletePost} currentUser={currentUser}/>}
         {tab==="chats"   &&<ChatsTab myTs={myTs} unread={unread} onOpen={openChat}/>}
@@ -566,7 +566,18 @@ function CreateView({form,setForm,flyer,setFlyer,onSubmit,onBack,formats,surface
             {flyer&&<button onClick={()=>setFlyer(null)} style={{background:"none",border:"none",color:C.coral,cursor:"pointer",fontSize:12,marginTop:4,padding:0,fontFamily:"inherit"}}>✕ Supprimer</button>}
           </div>
           <div><div style={{color:C.muted,fontSize:12,marginBottom:6}}>Nom *</div><input value={form.name} onChange={e=>f("name",e.target.value)} placeholder="ex. Open de Genève" style={IS()}/></div>
-          <div><div style={{color:C.muted,fontSize:12,marginBottom:6}}>Date *</div><input type="date" value={form.rawDate} onChange={e=>f("rawDate",e.target.value)} style={IS()}/></div>
+          <div><div style={{color:C.muted,fontSize:12,marginBottom:6}}>Date *</div><input type="date" value={form.rawDate} onChange={e=>f("rawDate",e.target.value)} style={IS({colorScheme:"dark",minWidth:0,fontSize:13})}/></div>
+          <div>
+            <div style={{color:C.muted,fontSize:12,marginBottom:8}}>Horaire</div>
+            <div onClick={()=>f("allDay",!form.allDay)} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",background:C.card,borderRadius:12,border:`1px solid ${C.border}`,cursor:"pointer",marginBottom:form.allDay?0:10}}>
+              <div style={{width:22,height:22,borderRadius:6,border:`2px solid ${form.allDay?C.gold:C.border}`,background:form.allDay?C.gold:"none",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{form.allDay&&<span style={{color:C.navy,fontSize:14,fontWeight:800}}>✓</span>}</div>
+              <span style={{color:form.allDay?C.text:C.muted,fontSize:14}}>Toute la journée</span>
+            </div>
+            {!form.allDay&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div><div style={{color:C.muted,fontSize:12,marginBottom:6}}>Début</div><input type="time" value={form.startTime} onChange={e=>f("startTime",e.target.value)} style={IS({colorScheme:"dark",fontSize:13})}/></div>
+              <div><div style={{color:C.muted,fontSize:12,marginBottom:6}}>Fin</div><input type="time" value={form.endTime} onChange={e=>f("endTime",e.target.value)} style={IS({colorScheme:"dark",fontSize:13})}/></div>
+            </div>}
+          </div>
           <div><div style={{color:C.muted,fontSize:12,marginBottom:6}}>Lieu *</div><input value={form.lieu} onChange={e=>f("lieu",e.target.value)} placeholder="ex. Genève — Plage des Eaux-Vives" style={IS()}/></div>
           <div>
             <div style={{color:C.muted,fontSize:12,marginBottom:8}}>Type de jeu</div>
