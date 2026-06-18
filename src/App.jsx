@@ -179,6 +179,24 @@ export default function App() {
     Notification.requestPermission().then(p=>{if(p==="granted"){toast2("Activées ✓",C.cyan);new Notification("Waschmachine 🏐",{body:"Tu recevras les alertes !"});}else toast2("Refusé",C.coral);});
   };
   const handleInstall=()=>{if(window._installPrompt)window._installPrompt.prompt();else toast2("iOS : Safari → Partager → Ajouter à l'écran d'accueil",C.gold);};
+  const addToCalendar=(t)=>{
+    const d=new Date(t.rawDate);
+    let dtStart,dtEnd;
+    if(t.allDay||!t.startTime){
+      const ds=d.toISOString().slice(0,10).replace(/-/g,"");
+      dtStart=`DTSTART;VALUE=DATE:${ds}`;dtEnd=`DTEND;VALUE=DATE:${ds}`;
+    } else {
+      const [sh,sm]=t.startTime.split(":");const [eh,em]=(t.endTime||"18:00").split(":");
+      const s=new Date(d);s.setHours(parseInt(sh),parseInt(sm),0);
+      const e2=new Date(d);e2.setHours(parseInt(eh),parseInt(em),0);
+      const fmt=(dt)=>dt.toISOString().replace(/[-:]|\.\d+/g,"").slice(0,15)+"Z";
+      dtStart=`DTSTART:${fmt(s)}`;dtEnd=`DTEND:${fmt(e2)}`;
+    }
+    const ics=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Waschmachine//FR","BEGIN:VEVENT",dtStart,dtEnd,`SUMMARY:🏐 ${t.name}`,`LOCATION:${t.lieu}`,`DESCRIPTION:${t.playerFormat} ${t.playType==="Indoor"?"Indoor":t.surface||""} - Waschmachine Volleyball Club`,"END:VEVENT","END:VCALENDAR"].join("\r\n");
+    const url=URL.createObjectURL(new Blob([ics],{type:"text/calendar;charset=utf-8"}));
+    const a=document.createElement("a");a.href=url;a.download=`${t.name}.ics`;a.click();URL.revokeObjectURL(url);
+    toast2("Ouverture du calendrier !",C.cyan);
+  };
   const shell=(c,mc)=><Shell notif={unreadNtfs} onNotif={()=>setView("notifs")} memberCount={mc||members.length}>{c}</Shell>;
 
   if(authState==="login")      return <LoginScreen onGoogle={()=>setAuth("onboarding")} onEmail={()=>setAuth("email")}/>;
@@ -194,24 +212,7 @@ export default function App() {
   return (
     <Shell notif={unreadNtfs} onNotif={()=>setView("notifs")} tab={tab} onTabChange={setTab} unread={unread} memberCount={members.length}>
       <div style={{flex:1,overflowY:"auto",paddingBottom:84}}>
-        {tab==="home"    &&<HomeTab myTs={myTs} onSel={setSelId} onChat={openChat} unread={unread} onCal={(t)=>{
-          const d=new Date(t.rawDate);
-          let dtStart,dtEnd;
-          if(t.allDay||!t.startTime){
-            const ds=d.toISOString().slice(0,10).replace(/-/g,"");
-            dtStart=`DTSTART;VALUE=DATE:${ds}`;dtEnd=`DTEND;VALUE=DATE:${ds}`;
-          } else {
-            const [sh,sm]=t.startTime.split(":");const [eh,em]=(t.endTime||"18:00").split(":");
-            const s=new Date(d);s.setHours(parseInt(sh),parseInt(sm),0);
-            const e=new Date(d);e.setHours(parseInt(eh),parseInt(em),0);
-            const fmt=(dt)=>dt.toISOString().replace(/[-:]|\.\d+/g,"").slice(0,15)+"Z";
-            dtStart=`DTSTART:${fmt(s)}`;dtEnd=`DTEND:${fmt(e)}`;
-          }
-          const ics=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Waschmachine//FR","BEGIN:VEVENT",dtStart,dtEnd,`SUMMARY:🏐 ${t.name}`,`LOCATION:${t.lieu}`,`DESCRIPTION:${t.playerFormat} ${t.playType==="Indoor"?"Indoor":t.surface||""} - Waschmachine Volleyball Club`,"END:VEVENT","END:VCALENDAR"].join("\r\n");
-          const url=URL.createObjectURL(new Blob([ics],{type:"text/calendar;charset=utf-8"}));
-          const a=document.createElement("a");a.href=url;a.download=`${t.name}.ics`;a.click();URL.revokeObjectURL(url);
-          toast2("Ouverture du calendrier !",C.cyan);
-        }}/>
+        {tab==="home"    &&<HomeTab myTs={myTs} onSel={setSelId} onChat={openChat} unread={unread} onCal={addToCalendar}/>}
         {tab==="tournois"&&<TournoisTab ts={ts} onSel={setSelId} onAdd={()=>setView("create")}/>}
         {tab==="feed"    &&<FeedTab feed={feed} onLike={likePhoto} onAdd={()=>setView("add-post")} onDelete={handleDeletePost} currentUser={currentUser}/>}
         {tab==="chats"   &&<ChatsTab myTs={myTs} unread={unread} onOpen={openChat}/>}
